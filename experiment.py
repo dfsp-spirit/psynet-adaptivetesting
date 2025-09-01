@@ -10,6 +10,8 @@ from psynet.modular_page import (
 from psynet.page import InfoPage, VolumeCalibration
 from psynet.timeline import Timeline, CodeBlock, PageMaker, while_loop, join
 from psynet.trial.static import StaticNode, StaticTrial, StaticTrialMaker
+from psynet.consent import NoConsent
+
 
 
 
@@ -69,9 +71,14 @@ class CustomTrial(StaticTrial):
             time_estimate=self._time_feedback,
         )
 
+    #def finalize_definition(definition, experiment, participant)
+    #    pass
+
 
 class Exp(psynet.experiment.Experiment):
     label = "Adaptive Testing"
+    psynet.experiment.Experiment.max_exp_dir_size_in_mb = 2000   # Prevent error if exceeding the default 256 MB limit.
+    consent_page = NoConsent()
 
     asset_storage = LocalStorage()
 
@@ -103,6 +110,8 @@ class Exp(psynet.experiment.Experiment):
             """,
             time_estimate=5,
         ),
+        lambda participant: participant.var.set("stopping_criterion_not_fulfilled", True),
+        lambda participant: participant.var.set("stopping_criterion_not_fulfilled", True),
         StaticTrialMaker(
             id_="static_audio_2",
             trial_class=CustomTrial,
