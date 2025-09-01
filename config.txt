@@ -1,12 +1,15 @@
 [Config]
-title = Demo experiment (Chrome browser, XXX minutes to complete)
-description = This experiment requires you to XXX. Please use a Chrome browser in incognito mode. We keep track of how much money you earn as you progress through the experiment; this means that if the experiment has to end early (e.g. equipment problems) we know how much to pay you. This number will be displayed at the bottom of the screen during the experiment. If you finish the experiment but time out, don't worry, we will approve your experiment manually.
+title = Adaptive Testing Paradigm Demo Experiment
+description = This experiment requires you to compute.
 contact_email_on_error = XXX@gmail.com
-organization_name = XXX
+organization_name = MPIAE
 
 recruiter = generic
 currency = $
-wage_per_hour = 12.0
+wage_per_hour = 0.0
+
+host = 0.0.0.0
+allow_mobile_devices = true
 
 [Prolific]
 # recruiter = prolific
