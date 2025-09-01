@@ -3,24 +3,14 @@ import random
 import psynet.experiment
 from psynet.asset import LocalStorage, OnDemandAsset, S3Storage  # noqa
 from psynet.modular_page import (
-    AudioMeterControl,
     AudioPrompt,
     AudioRecordControl,
     ModularPage,
 )
 from psynet.page import InfoPage, VolumeCalibration
-from psynet.timeline import Timeline
+from psynet.timeline import Timeline, CodeBlock, PageMaker, while_loop, join
 from psynet.trial.static import StaticNode, StaticTrial, StaticTrialMaker
 
-from .custom_synth import synth_prosody
-
-##########################################################################################
-# Stimuli
-##########################################################################################
-
-
-def synth_stimulus(path, frequencies):
-    synth_prosody(vector=frequencies, output_path=path)
 
 
 # Here we define the stimulus set in an analogous way to the static_audio demo,
@@ -81,22 +71,31 @@ class CustomTrial(StaticTrial):
 
 
 class Exp(psynet.experiment.Experiment):
-    label = "Static audio demo (2)"
+    label = "Adaptive Testing"
 
-    # asset_storage = S3Storage("psynet-tests", "static-audio")
+    asset_storage = LocalStorage()
+
+    def select_next_item(participant):
+        test = participant.var.adaptive_test
+        previous_trials = CustomTrial.query.filter_by(participant_id=participant.id).all()
+
+
+    def evaluate_response(participant):
+
+        def get_response(participant):
+            return participant.answer
+
+        test = participant.var.adaptive_test
+        test.get_response = get_response
+        test.run_test_once()
+        # Careful: watch out for PsyNet not updating the participant.var.adaptive_test,
+        # because it's an inplace update.
+        # This should hopefully work though:
+        participant.var.adaptive_test = test
+
+
 
     timeline = Timeline(
-        VolumeCalibration(),
-        ModularPage(
-            "record_calibrate",
-            """
-            Please speak into your microphone and check that the sound is registered
-            properly. If the sound is too quiet, try moving your microphone
-            closer or increasing the input volume on your computer.
-            """,
-            AudioMeterControl(),
-            time_estimate=5,
-        ),
         InfoPage(
             """
             In this experiment you will hear some words. Your task will be to repeat
@@ -111,5 +110,16 @@ class Exp(psynet.experiment.Experiment):
             expected_trials_per_participant=len(nodes),
             target_n_participants=3,
             recruit_mode="n_participants",
+        ),
+        while_loop(
+           label="Adaptive test loop",
+            condition=lambda participant: participant.var.stopping_criterion_not_fulfilled,
+            logic=join(
+                CodeBlock(select_next_item),  # loads the adaptive test, and sets the current_item
+                PageMaker(lambda: CustomTrial.cue({
+                    "item": participant.var.current_item,
+                })),
+                CodeBlock(evaluate_response),
+            )
         ),
     )
