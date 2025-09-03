@@ -23,7 +23,23 @@ import pandas as pd
 from typing import Union
 
 
-
+#In catR (the R package for computerized adaptive testing), the a, b, c, d parameters are the item parameters from Item Response Theory (IRT) models. Their meaning depends on which IRT model you are using:
+#
+#a → discrimination parameter
+#  How well the item differentiates between examinees with different ability levels (slope of the ICC).
+#  Higher a means the item is more informative around its difficulty point.
+#
+#b → difficulty parameter
+#  The ability level (θ) at which the probability of a correct response is 50% (in the 2PL and 3PL models).
+#  Shifts the item response curve left or right.
+#
+#c → guessing parameter
+#  Lower asymptote of the item characteristic curve.
+#  Represents the probability of a correct answer by guessing (often relevant in multiple-choice tests).
+#
+#d → upper asymptote
+#  Upper bound of the item characteristic curve (instead of 1.0).
+#  Useful in the 4PL model if items have less-than-perfect maximum performance (slipping, careless errors, etc.).
 
 
 # Here we define the stimulus set in an analogous way to the static_audio demo,
@@ -122,11 +138,13 @@ class Exp(psynet.experiment.Experiment):
 
 
 
-    def select_next_item(participant):
-        test = participant.var.adaptive_test
-        assert isinstance(test, AdaptiveTest)
-        previous_trials = CustomTrial.query.filter_by(participant_id=participant.id).all()
-        print(f"Previous trials: {len(previous_trials)}")
+    def select_next_item_id(participant):
+        adaptive_test : AdaptiveTest = participant.var.adaptive_test
+        assert isinstance(adaptive_test, AdaptiveTest)
+        #previous_trials = CustomTrial.query.filter_by(participant_id=participant.id).all()
+        #print(f"Previous trials: {len(previous_trials)}")
+        next_item: TestItem = adaptive_test.select_next_item()
+        return next_item.id
 
 
     def evaluate_response(participant):
@@ -176,7 +194,7 @@ class Exp(psynet.experiment.Experiment):
            label="Adaptive test loop",
             condition=lambda participant: participant.var.stopping_criterion_not_fulfilled,
             logic=join(
-                CodeBlock(select_next_item),  # loads the adaptive test, and sets the current_item
+                CodeBlock(select_next_item_id),  # loads the adaptive test, and sets the current_item
                 PageMaker(lambda participant: CustomTrial.cue({
                     "item": participant.var.current_item,
                 }), time_estimate=10.0),
