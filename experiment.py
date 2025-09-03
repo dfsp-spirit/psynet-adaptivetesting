@@ -1,7 +1,7 @@
 import random
 
 import psynet.experiment
-from psynet.asset import LocalStorage, OnDemandAsset, S3Storage  # noqa
+from psynet.asset import LocalStorage, OnDemandAsset, S3Storage, asset  # noqa
 from psynet.modular_page import (
     AudioPrompt,
     AudioRecordControl,
@@ -11,6 +11,7 @@ from psynet.page import InfoPage, VolumeCalibration
 from psynet.timeline import Timeline, CodeBlock, PageMaker, while_loop, join
 from psynet.trial.static import StaticNode, StaticTrial, StaticTrialMaker
 from psynet.consent import NoConsent
+from psynet.participant import Participant
 
 
 from adaptivetesting.implementations import TestAssembler
@@ -20,7 +21,7 @@ from adaptivetesting.math.estimators import BayesModal, CustomPrior
 from adaptivetesting.math.item_selection import maximum_information_criterion
 from scipy.stats import t
 import pandas as pd
-from typing import Union
+from typing import Union, Dict, NoReturn
 
 
 #In catR (the R package for computerized adaptive testing), the a, b, c, d parameters are the item parameters from Item Response Theory (IRT) models. Their meaning depends on which IRT model you are using:
@@ -48,6 +49,7 @@ nodes = [
     StaticNode(
         definition={
             "frequency_gradient": frequency_gradient,
+            "wait_seconds_between_stimuli": 5.0,
         },
     )
     for frequency_gradient in [-100, -50, 0, 50, 100]
@@ -61,18 +63,22 @@ class CustomTrial(StaticTrial):
     time_estimate = _time_trial + _time_feedback
     wait_for_feedback = True
 
-    def finalize_definition(self, definition, experiment, participant):
+    def finalize_definition(self, definition : Dict, experiment : psynet.experiment.Experiment, participant : Participant) -> Dict:
         definition["start_frequency"] = random.uniform(-100, 100)
         definition["frequencies"] = [
             definition["start_frequency"] + i * definition["frequency_gradient"]
             for i in range(5)
         ]
+        adaptive_test : AdaptiveTest = participant.var.adaptive_test
+        assert isinstance(adaptive_test, AdaptiveTest)
+        item : TestItem = adaptive_test.get_next_item()
+        stimulus_id : Union[int, None] = item.id
+        assert isinstance(stimulus_id, int)
+        definition["stimulus_id"] = stimulus_id
+        stimulus_key = f"static/stimuli/item_{stimulus_id}.wav" # TODO: adapt this to our actual stimulus naming scheme
         self.add_assets(
             {
-                "stimulus": OnDemandAsset(
-                    function=synth_stimulus,
-                    extension=".wav",
-                )
+                "stimulus": asset(stimulus_key)
             }
         )
         return definition
@@ -138,18 +144,21 @@ class Exp(psynet.experiment.Experiment):
 
 
 
-    def select_next_item_id(participant):
+    def select_next_item_id(participant : Participant) -> NoReturn:
+        """
+        Sets the current_item variable of the participant to the next item selected by the adaptive test.
+        """
         adaptive_test : AdaptiveTest = participant.var.adaptive_test
         assert isinstance(adaptive_test, AdaptiveTest)
         #previous_trials = CustomTrial.query.filter_by(participant_id=participant.id).all()
         #print(f"Previous trials: {len(previous_trials)}")
         next_item: TestItem = adaptive_test.select_next_item()
-        return next_item.id
+        participant.var.set("current_item", next_item)
 
 
-    def evaluate_response(participant):
+    def evaluate_response(participant : Participant) -> NoReturn:
 
-        def get_response(participant):
+        def get_response(participant : Participant) -> int:
             return participant.answer
 
         adaptive_test = participant.var.adaptive_test
@@ -162,12 +171,12 @@ class Exp(psynet.experiment.Experiment):
 
         # Check whether stopping criterion is fulfilled
         if adaptive_test.standard_error <= 0.4:
-            print(f"Stopping criterion fulfilled: standard error {adaptive_test.standard_error:.2f} <= 0.4")
+            print(f"Stopping criterion A fulfilled: standard error {adaptive_test.standard_error:.2f} <= 0.4")
             participant.var.stopping_criterion_not_fulfilled = False
 
         # Also end test if all items have been shown
         if len(adaptive_test.item_pool.test_items) == 0:
-            print(f"Stopping criterion fulfilled: all items have been shown.")
+            print(f"Stopping criterion B fulfilled: all items have been shown.")
             participant.var.stopping_criterion_not_fulfilled = False
 
 
@@ -182,8 +191,9 @@ class Exp(psynet.experiment.Experiment):
         ),
         lambda participant: participant.var.set("adaptive_test", Exp.create_adaptivetest_instance()),
         lambda participant: participant.var.set("stopping_criterion_not_fulfilled", True),
+        lambda participant: participant.var.set("current_item", None),
         StaticTrialMaker(
-            id_="static_audio_2",
+            id_="adaptivetesting",
             trial_class=CustomTrial,
             nodes=nodes,
             expected_trials_per_participant=len(nodes),
@@ -194,7 +204,7 @@ class Exp(psynet.experiment.Experiment):
            label="Adaptive test loop",
             condition=lambda participant: participant.var.stopping_criterion_not_fulfilled,
             logic=join(
-                CodeBlock(select_next_item_id),  # loads the adaptive test, and sets the current_item
+                CodeBlock(select_next_item_id),  # loads the adaptive test, and sets the current_item variable of participant
                 PageMaker(lambda participant: CustomTrial.cue({
                     "item": participant.var.current_item,
                 }), time_estimate=10.0),
