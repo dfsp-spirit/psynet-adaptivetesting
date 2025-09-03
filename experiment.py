@@ -72,18 +72,6 @@ class CustomTrial(StaticTrial):
             time_estimate=self._time_trial,
         )
 
-    def show_feedback(self, experiment, participant):
-        return ModularPage(
-            "feedback_page",
-            AudioPrompt(
-                self.assets["imitation"],
-                "Listen back to your recording. Did you do a good job?",
-            ),
-            time_estimate=self._time_feedback,
-        )
-
-    #def finalize_definition(definition, experiment, participant)
-    #    pass
 
 
 class Exp(psynet.experiment.Experiment):
@@ -189,10 +177,11 @@ class Exp(psynet.experiment.Experiment):
             condition=lambda participant: participant.var.stopping_criterion_not_fulfilled,
             logic=join(
                 CodeBlock(select_next_item),  # loads the adaptive test, and sets the current_item
-                PageMaker(lambda: CustomTrial.cue({
+                PageMaker(lambda participant: CustomTrial.cue({
                     "item": participant.var.current_item,
-                })),
+                }), time_estimate=10.0),
                 CodeBlock(evaluate_response),
-            )
+            ),
+            expected_repetitions=35,  # just for progress indication (not a hard limit)
         ),
     )
