@@ -90,26 +90,28 @@ class CustomTrial(StaticTrial):
 
         definition["stimulus_id"] = stimulus_id
 
-        item_pool : ItemPool = adaptive_test.item_pool
-
         item_difficulty: float = item.b
         stimuli_list: pd.Series = g_items_data.loc[g_items_data["b"] == item_difficulty, "stimulusfile"]
         stimulus: str = stimuli_list.values[0]
-        print(f"Selected stimulus file: {stimulus}")
+        print(f"Selected stimulus file: '{stimulus}'.")
 
-        self.add_assets(
-            {
-                "stimulus": asset(stimulus)
-            }
-        )
+        definition["stimulus"] = stimulus
+
+        #print(f"Creating asset from stimulus file '{stimulus}'...")
+        #self.add_assets(
+        #    {
+        #        "stimulus": asset(stimulus)
+        #    }
+        #)
         return definition
 
     def show_trial(self, experiment, participant):
         return ModularPage(
             "imitation",
             AudioPrompt(
-                self.assets["stimulus"],
-                "Please imitate the spoken word as closely as possible.",
+                #self.assets["stimulus"],
+                self.definition["stimulus"],
+                text="Please imitate the spoken word as closely as possible.",
             ),
             AudioRecordControl(duration=3.0, bot_response_media="example-bier.wav"),
             time_estimate=self._time_trial,
