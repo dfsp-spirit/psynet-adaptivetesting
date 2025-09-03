@@ -20,7 +20,7 @@ from adaptivetesting.math.estimators import BayesModal, CustomPrior
 from adaptivetesting.math.item_selection import maximum_information_criterion
 from scipy.stats import t
 import pandas as pd
-from traitlets import Union
+from typing import Union
 
 
 
