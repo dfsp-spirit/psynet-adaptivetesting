@@ -21,7 +21,7 @@ from adaptivetesting.math.estimators import BayesModal, CustomPrior
 from adaptivetesting.math.item_selection import maximum_information_criterion
 from scipy.stats import t
 import pandas as pd
-from typing import Union, Dict, NoReturn
+from typing import Union, Dict, NoReturn, List
 
 
 #In catR (the R package for computerized adaptive testing), the a, b, c, d parameters are the item parameters from Item Response Theory (IRT) models. Their meaning depends on which IRT model you are using:
@@ -41,6 +41,15 @@ from typing import Union, Dict, NoReturn
 #d → upper asymptote
 #  Upper bound of the item characteristic curve (instead of 1.0).
 #  Useful in the 4PL model if items have less-than-perfect maximum performance (slipping, careless errors, etc.).
+
+
+g_items_data = pd.DataFrame({
+                "a": [1.32, 1.07, 0.84, 1.19, 0.95],  # discrimination
+                "b": [-0.63, 0.18, -0.84, 0.41, -0.25],  # difficulty
+                "c": [0.17, 0.10, 0.19, 0.15, 0.12],  # guessing
+                "d": [0.87, 0.93, 1.0, 0.89, 0.94],  # upper asymptote
+                "stimulusfile": ["static/bier.wav", "static/baum.wav", "static/haus.wav", "static/auto.wav", "static/boot.wav"]
+            })
 
 
 # Here we define the stimulus set in an analogous way to the static_audio demo,
@@ -72,13 +81,25 @@ class CustomTrial(StaticTrial):
         adaptive_test : AdaptiveTest = participant.var.adaptive_test
         assert isinstance(adaptive_test, AdaptiveTest)
         item : TestItem = adaptive_test.get_next_item()
+        print(f"Selected item ID: {item.id}, a: {item.a}, b: {item.b}, c: {item.c}, d: {item.d}")
+        print(f"Selected item as dict: {item.as_dict()}")
         stimulus_id : Union[int, None] = item.id
-        assert isinstance(stimulus_id, int)
+        if not isinstance(stimulus_id, int):
+            print(f"Warning: item ID is not an int, but {type(stimulus_id)}. Setting stimulus_id to -1.")
+            stimulus_id = -1
+
         definition["stimulus_id"] = stimulus_id
-        stimulus_key = f"static/stimuli/item_{stimulus_id}.wav" # TODO: adapt this to our actual stimulus naming scheme
+
+        item_pool : ItemPool = adaptive_test.item_pool
+
+        item_difficulty: float = item.b
+        stimuli_list: pd.Series = g_items_data.loc[g_items_data["b"] == item_difficulty, "stimulusfile"]
+        stimulus: str = stimuli_list.values[0]
+        print(f"Selected stimulus file: {stimulus}")
+
         self.add_assets(
             {
-                "stimulus": asset(stimulus_key)
+                "stimulus": asset(stimulus)
             }
         )
         return definition
@@ -119,13 +140,7 @@ class Exp(psynet.experiment.Experiment):
 
         else:
             print(f"No CSV file provided, using default item parameters.")
-            items_data = pd.DataFrame({
-                "a": [1.32, 1.07, 0.84, 1.19, 0.95],  # discrimination
-                "b": [-0.63, 0.18, -0.84, 0.41, -0.25],  # difficulty
-                "c": [0.17, 0.10, 0.19, 0.15, 0.12],  # guessing
-                "d": [0.87, 0.93, 1.0, 0.89, 0.94]   # upper asymptote
-            })
-            item_pool = ItemPool.load_from_dataframe(items_data)
+            item_pool = ItemPool.load_from_dataframe(g_items_data)
 
         adaptive_test: AdaptiveTest = TestAssembler(
             item_pool=item_pool,
