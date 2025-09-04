@@ -22,7 +22,7 @@ from adaptivetesting.math.estimators import BayesModal, CustomPrior
 from adaptivetesting.math.item_selection import maximum_information_criterion
 from scipy.stats import t
 import pandas as pd
-from typing import Union, Dict, NoReturn
+from typing import Union, Dict, NoReturn, List
 
 
 # In catR (the R package for computerized adaptive testing), the a, b, c, d
@@ -87,13 +87,12 @@ class CustomTrial(StaticTrial):
         adaptive_test: AdaptiveTest = participant.var.adaptive_test
         assert isinstance(adaptive_test, AdaptiveTest)
         item: TestItem = adaptive_test.get_next_item()
-        print(
-            f"Selected item ID: {item.id}, a: {item.a}, b: {item.b}, c: {item.c}, d: {item.d}")
+        # print(f"Selected item ID: {item.id}, a: {item.a}, b: {item.b}, c: {item.c}, d: {item.d}")
         print(f"Selected item as dict: {item.as_dict()}")
         stimulus_id: Union[int, None] = item.id
         if not isinstance(stimulus_id, int):
             print(
-                f"Warning: item ID is not an int, but {type(stimulus_id)}. Setting stimulus_id to -1.")
+                f"##### Warning: item ID is not an int, but {type(stimulus_id)}. Setting stimulus_id to -1.")
             stimulus_id = -1
 
         definition["stimulus_id"] = stimulus_id
@@ -102,7 +101,7 @@ class CustomTrial(StaticTrial):
         stimuli_list: pd.Series = g_items_data.loc[g_items_data["b"]
                                                    == item_difficulty, "stimulusfile"]
         stimulus: str = stimuli_list.values[0]
-        print(f"Selected stimulus file: '{stimulus}'.")
+        print(f"###### Selected stimulus file: '{stimulus}'.")
 
         definition["stimulus"] = stimulus
 
@@ -186,24 +185,37 @@ class Exp(psynet.experiment.Experiment):
         def get_response(participant: Participant) -> int:
             return participant.answer
 
-        adaptive_test = participant.var.adaptive_test
+        adaptive_test: AdaptiveTest = participant.var.adaptive_test
         adaptive_test.get_response = get_response
+        print(f"evaluate_reponse: running adaptive_test.run_test_once()...")
         adaptive_test.run_test_once()
         # Careful: watch out for PsyNet not updating the participant.var.adaptive_test,
         # because it's an inplace update.
         # This should hopefully work though:
         participant.var.adaptive_test = adaptive_test
 
+        all_item_difficulties: List[float] = adaptive_test.get_item_difficulties()
+
+        print(f"evaluate_reponse: All item difficulties in test pool: {all_item_difficulties}")
+
+        answered_items_difficulties: List[float] = adaptive_test.get_answered_items_difficulties()
+        print(
+            f"evaluate_reponse: Answered item difficulties: {answered_items_difficulties}")
+
         # Check whether stopping criterion is fulfilled
         if adaptive_test.standard_error <= 0.4:
             print(
-                f"Stopping criterion A fulfilled: standard error {adaptive_test.standard_error:.2f} <= 0.4")
+                f"evaluate_reponse: Stopping criterion A fulfilled: standard error {adaptive_test.standard_error:.2f} <= 0.4")
             participant.var.stopping_criterion_not_fulfilled = False
 
         # Also end test if all items have been shown
         if len(adaptive_test.item_pool.test_items) == 0:
-            print(f"Stopping criterion B fulfilled: all items have been shown.")
+            print(
+                f"evaluate_reponse: Stopping criterion B fulfilled: all items have been shown.")
             participant.var.stopping_criterion_not_fulfilled = False
+
+        print(
+            f"evaluate_reponse: current ability estimate: {adaptive_test.ability:.2f}, standard error: {adaptive_test.standard_error:.2f}")
 
     timeline = Timeline(
         InfoPage(
