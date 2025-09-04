@@ -56,7 +56,7 @@ class CustomTrial(StaticTrial):
             "sound_comparison",
             Prompt(
                 # In the real experiment, we play an audio file that contains two sounds: sound A, then a pause, then sound B.
-                # In this demo experiment, we dont play and sound, we just print the filename of the sound we would play.
+                # In this demo experiment, we don't play any sound. We just print the filename of the sound we would play as a text message.
                 text=f"Please listen to the 2 sounds from file '{selected_stimulus_file}' as closely as possible. Were they identical? (NOTE: In this demo, no sounds are played, just selected a random answer.)",
             ),
             RadioButtonControl(
