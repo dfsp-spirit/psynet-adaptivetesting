@@ -2,6 +2,22 @@
 An experiment that illustrates integration of [psynet](https://gitlab.com/PsyNetDev/PsyNet) with [adaptivetesting](https://github.com/condecon/adaptivetesting)
 
 
+## Super quick installation instructions if your computer is ready to run PsyNet experiments already
+
+If you already have installed everything needed for running PsyNet and have successfully run other PsyNet experiments, all you have to do is:
+
+```sh
+git clone https://github.com/dfsp-spirit/psynet-adaptivetesting.git
+cd psynet-adaptivetesting/
+python -m venv venv
+source venv/bin/activate
+pip install -r constraints.txt    # This will get you PsyNet, Dallinger and their dependencies
+pip install adaptivetesting
+psynet debug local
+```
+
+This will start the web server and open the experiment dashboard in Chrome.
+
 
 ## Installing PsyNet and preparing to run this experiment
 
@@ -41,12 +57,11 @@ curl https://cli-assets.heroku.com/install-ubuntu.sh | sh
 Now install the experiment from this repo, which will install dependencies like the PsyNet and Dallinger python packages:
 
 ```sh
-git clone https://gitlab.gwdg.de/psynet_mpiae/psynet-ewmkids-robots.git
-cd psynet-ewmkids-robots/
+git clone https://gitlab.gwdg.de/psynet_mpiae/psynet-adaptivetesting.git
+cd psynet-adaptivetesting/
 python -m venv venv
 source venv/bin/activate
 pip install -r constraints.txt    # This will get you PsyNet, Dallinger and their dependencies
-psynet debug local                # starts PsyNet server and opens connection to it in your Chrome webbrowser.
 ```
 
 Now we install extra dependencies of this experiment, which are not general psynet dependencies:
@@ -55,21 +70,11 @@ Now we install extra dependencies of this experiment, which are not general psyn
 pip install adaptivetesting
 ```
 
-For now, we need to hack Dallinger to allow large experiment directories. Note: Because of the legacy run command we use below to run our experiment, setting something like ```psynet.experiment.Experiment.max_exp_dir_size_in_mb = 2000``` in our derived `Experiment` class does not help, as with the legacy command, this is not passed on to the Dallinger launch functions used with legacy mode.
-
-What you need to do is, find the Dallinger file `dallinger/command_line/utils.py` that is used by your PsyNet installation (Dallinger is a dpython dependency of PsyNet). If you followed the instructions above and your virtual environment is in the directory `venv`, it should be at `venv/lib/python3.11/site-packages/dallinger/command_line/utils.py`. If your used Python version is not `python3.11`, you will have to adapt the path accordingly, e.g., to `venv/lib/python3.12/site-packages/dallinger/command_line/utils.py`. There will only be one `python3.xy` directory in `venv/lib/`, just use that one.
-
-In that file you found, you need to change ```def verify_directory(verbose=True, max_size_mb=50)``` to ```def verify_directory(verbose=True, max_size_mb=2000)```.
-
-Now run our experiment:
-
 ```sh
 psynet debug local --legacy
 ```
 
 Note that the `--legacy` option ensures that Flask binds to all interfaces, in combination with the `host = 0.0.0.0` directive we have in the [config.txt](./config.txt) file in this directory. Without the legacy option, PsyNet will only listen on loopback (IP 127.0.0.1), but then we cannot connect with ipads to our local deployment server. All of this is only needed because we run PsyNet offline on a laptop in schools with no internet.
-
-
 
 Chrome should open automatically and display the PsyNet overview page. If not, open Chrome manually and connect to [localhost:5000](http://localhost:5000).
 
