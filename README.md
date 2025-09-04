@@ -2,7 +2,7 @@
 A minimal PsyNet experiment that illustrates integration of [PsyNet](https://gitlab.com/PsyNetDev/PsyNet) with [adaptivetesting](https://github.com/condecon/adaptivetesting).
 
 
-## Super quick installation instructions if your computer is ready to run PsyNet experiments already
+## Super quick installation instructions if your computer is ready to run PsyNet experiments
 
 If you already have installed everything needed for running PsyNet and have successfully run other PsyNet experiments, all you have to do is:
 
