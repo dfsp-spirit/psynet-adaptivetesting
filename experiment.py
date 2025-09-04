@@ -98,12 +98,11 @@ class CustomTrial(StaticTrial):
         definition["stimulus_id"] = stimulus_id
 
         item_difficulty: float = item.b
-        stimuli_list: pd.Series = g_items_data.loc[g_items_data["b"]
-                                                   == item_difficulty, "stimulusfile"]
-        stimulus: str = stimuli_list.values[0]
-        print(f"###### Selected stimulus file: '{stimulus}'.")
+        stimuli_list: pd.Series = g_items_data.loc[g_items_data["b"] == item_difficulty, "stimulusfile"] # TODO: avoid accessing global variable. Requires my patch for adaptive_test.itempool, which currently does not store IDs.
+        selected_stimulus_file: str = stimuli_list.values[0]
+        print(f"###### Selected stimulus file: '{selected_stimulus_file}'.")
 
-        definition["stimulus"] = stimulus
+        definition["stimulus"] = selected_stimulus_file
 
         # print(f"Creating asset from stimulus file '{stimulus}'...")
         # self.add_assets(
@@ -114,6 +113,7 @@ class CustomTrial(StaticTrial):
         return definition
 
     def show_trial(self, experiment, participant):
+        print(f"CustomTrial.show_trial() for participant {participant.id}: self.definition: {self.definition}")
         return ModularPage(
             "imitation",
             Prompt(
@@ -177,10 +177,14 @@ class Exp(psynet.experiment.Experiment):
         assert isinstance(adaptive_test, AdaptiveTest)
         # previous_trials = CustomTrial.query.filter_by(participant_id=participant.id).all()
         # print(f"Previous trials: {len(previous_trials)}")
-        next_item: TestItem = adaptive_test.select_next_item()
+        next_item: TestItem = adaptive_test.get_next_item()
+        print(f"select_next_item_id for participant {participant.id}: Selected next item: {next_item.as_dict()}")
         participant.var.set("current_item", next_item)
 
     def evaluate_response(participant: Participant) -> NoReturn:
+
+        print(f"###### evaluate_response: starting to evaluate response for participant {participant.id}... #####")
+        print(f"evaluate_response: participant answer: {participant.answer}")
 
         def get_response(participant: Participant) -> int:
             return participant.answer
@@ -217,6 +221,8 @@ class Exp(psynet.experiment.Experiment):
         print(
             f"evaluate_reponse: current ability estimate: {adaptive_test.ability:.2f}, standard error: {adaptive_test.standard_error:.2f}")
 
+        print(f"###### evaluate_response: finished evaluating response for participant {participant.id}. #####")
+
     timeline = Timeline(
         InfoPage(
             """
@@ -249,7 +255,6 @@ class Exp(psynet.experiment.Experiment):
                 }), time_estimate=10.0),
                 CodeBlock(evaluate_response),
             ),
-            # just for progress indication (not a hard limit)
-            expected_repetitions=35,
+            expected_repetitions=len(nodes),
         ),
     )
