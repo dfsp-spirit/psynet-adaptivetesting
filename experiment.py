@@ -40,44 +40,8 @@ class CustomTrial(StaticTrial):
 
     time_estimate = 10.0  # seconds
 
-    def finalize_definition(self, definition: Dict, experiment: psynet.experiment.Experiment, participant: Participant) -> Dict:
-
-        adaptive_test: AdaptiveTest = participant.var.adaptive_test
-        assert isinstance(adaptive_test, AdaptiveTest), f"Expected adaptive_test to be AdaptiveTest, got {type(adaptive_test)}"
-        item: TestItem = adaptive_test.get_next_item()
-        print(f"CustomTrial.finalize_definition(): Selected item as dict: {item.as_dict()}")
-
-        ## Currently adaptive_test.item_pool does not store IDs, but I suggested a patch to add this feature.
-        ## When implemented, we could use the ID to select a stimulus file.
-        #stimulus_id: Union[int, None] = item.id
-        #if not isinstance(stimulus_id, int):
-        #    print(f"CustomTrial.finalize_definition(): Warning: item ID is not an int, but {type(stimulus_id)}.")
-        #definition["stimulus_id"] = stimulus_id
-
-        item_difficulty: float = item.b
-        stimuli_list: pd.Series = g_items_data.loc[g_items_data["b"] == item_difficulty, "stimulusfile"] # TODO: avoid accessing global variable. Requires my patch for adaptive_test.itempool, which currently does not store IDs.
-        selected_stimulus_file: str = stimuli_list.values[0]
-        print(f"CustomTrial.finalize_definition(): Selected stimulus file: '{selected_stimulus_file}'.")
-
-        definition["stimulus"] = selected_stimulus_file
-
-        ## We could create an asset here, but currently we keeop it simple and just use the filename directly.
-        # print(f"Creating asset from stimulus file '{stimulus}'...")
-        # self.add_assets(
-        #    {
-        #        "stimulus": asset(stimulus)
-        #    }
-        # )
-        print(f"CustomTrial.finalize_definition(): returning final definition: {definition}")
-        return definition
-
-
     def show_trial(self, experiment : psynet.experiment.Experiment, participant : Participant) -> ModularPage:
         print(f"CustomTrial.show_trial() for participant {participant.id}: self.definition: {self.definition}")
-
-        #selected_stimulus_file : str = self.definition['stimulus']
-        #adaptive_test: AdaptiveTest = participant.var.adaptive_test
-        #item: TestItem = adaptive_test.get_next_item()
 
         item: TestItem = self.definition['item']
         assert isinstance(item, TestItem), f"Expected item to be TestItem, got {type(item)}"
@@ -86,10 +50,7 @@ class CustomTrial(StaticTrial):
         stimuli_list: pd.Series = g_items_data.loc[g_items_data["b"] == item_difficulty, "stimulusfile"] # TODO: avoid accessing global variable. Requires my patch for adaptive_test.itempool, which currently does not store IDs.
         selected_stimulus_file: str = stimuli_list.values[0]
 
-        #selected_stimulus_file: str = self.definition['stimulus']
-
         assert isinstance(selected_stimulus_file, str), f"Expected stimulus to be str, got {type(selected_stimulus_file)}"
-
 
         return ModularPage(
             "sound_comparison",
@@ -109,19 +70,17 @@ class CustomTrial(StaticTrial):
 
 class Exp(psynet.experiment.Experiment):
 
-    # PsyNet experiment configuration
+    ## PsyNet experiment configuration
     label = "Adaptive Testing"
-    # Prevent error if exceeding the default 256 MB limit.
-    psynet.experiment.Experiment.max_exp_dir_size_in_mb = 2000
+    psynet.experiment.Experiment.max_exp_dir_size_in_mb = 2000   # Prevent error if exceeding the default 256 MB limit.
     consent_page = NoConsent()
     asset_storage = LocalStorage()
 
-
+    @staticmethod
     def create_adaptivetest_instance(items_difficulty_csvfile: Union[str, None] = None) -> AdaptiveTest:
         """
         Helper function to create an AdaptiveTest instance.
         """
-
         if items_difficulty_csvfile:
             # Load item parameters from CSV file
             data_frame = pd.read_csv(items_difficulty_csvfile)
@@ -146,7 +105,7 @@ class Exp(psynet.experiment.Experiment):
         )
         return adaptive_test
 
-
+    @staticmethod
     def set_participant_current_item(participant: Participant) -> NoReturn:
         """
         Sets the current_item variable of the participant to the next item selected by the adaptive test.
@@ -160,6 +119,7 @@ class Exp(psynet.experiment.Experiment):
         participant.var.set("current_item", next_item)
 
 
+    @staticmethod
     def evaluate_response(participant: Participant) -> NoReturn:
 
         print(f"###### evaluate_response: starting to evaluate response for participant {participant.id}... #####")
@@ -169,18 +129,16 @@ class Exp(psynet.experiment.Experiment):
             return participant.answer
 
         adaptive_test: AdaptiveTest = participant.var.adaptive_test
+        assert isinstance(adaptive_test, AdaptiveTest), f"Expected adaptive_test to be AdaptiveTest, got {type(adaptive_test)}"
         adaptive_test.get_response = get_response
         print(f"evaluate_reponse: running adaptive_test.run_test_once()...")
         adaptive_test.run_test_once()
         participant.var.adaptive_test = adaptive_test # update participant variable
 
-        all_item_difficulties: List[float] = adaptive_test.get_item_difficulties()
-
-        print(f"evaluate_reponse: All item difficulties in test pool: {all_item_difficulties}")
-
-        answered_items_difficulties: List[float] = adaptive_test.get_answered_items_difficulties()
-        print(
-            f"evaluate_reponse: Answered item difficulties: {answered_items_difficulties}")
+        #all_item_difficulties: List[float] = adaptive_test.get_item_difficulties()
+        #print(f"evaluate_reponse: All item difficulties in test pool: {all_item_difficulties}")
+        #answered_items_difficulties: List[float] = adaptive_test.get_answered_items_difficulties()
+        #print(f"evaluate_reponse: Answered item difficulties: {answered_items_difficulties}")
 
         # Check whether stopping criterion is fulfilled
         if adaptive_test.standard_error <= 0.4:
@@ -194,10 +152,9 @@ class Exp(psynet.experiment.Experiment):
                 f"evaluate_reponse: Stopping criterion B fulfilled: all items have been shown.")
             participant.var.stopping_criterion_not_fulfilled = False
 
-        print(
-            f"evaluate_reponse: current ability estimate: {adaptive_test.ability:.2f}, standard error: {adaptive_test.standard_error:.2f}")
+        #print(f"evaluate_reponse: current ability estimate: {adaptive_test.ability:.2f}, standard error: {adaptive_test.standard_error:.2f}")
+        #print(f"###### evaluate_response: finished evaluating response for participant {participant.id}. #####")
 
-        print(f"###### evaluate_response: finished evaluating response for participant {participant.id}. #####")
 
     timeline = Timeline(
         InfoPage(
