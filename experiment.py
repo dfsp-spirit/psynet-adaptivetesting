@@ -250,9 +250,10 @@ class Exp(psynet.experiment.Experiment):
             logic=join(
                 # loads the adaptive test, and sets the current_item variable of participant
                 CodeBlock(select_next_item_id),
-                PageMaker(lambda participant: CustomTrial.cue({
+                TODO: the next line overwrites the definition! it should rather update it.
+                PageMaker(lambda participant: CustomTrial.cue(definition={
                     "item": participant.var.current_item,
-                }), time_estimate=10.0),
+                }, assets=None), time_estimate=10.0),
                 CodeBlock(evaluate_response),
             ),
             expected_repetitions=len(nodes),
