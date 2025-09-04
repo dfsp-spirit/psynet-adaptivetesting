@@ -1,5 +1,5 @@
 # psynet-adaptivetesting
-An experiment that illustrates integration of [psynet](https://gitlab.com/PsyNetDev/PsyNet) with [adaptivetesting](https://github.com/condecon/adaptivetesting)
+A minimal PsyNet experiment that illustrates integration of [PsyNet](https://gitlab.com/PsyNetDev/PsyNet) with [adaptivetesting](https://github.com/condecon/adaptivetesting).
 
 
 ## Super quick installation instructions if your computer is ready to run PsyNet experiments already
@@ -20,6 +20,8 @@ This will start the web server and open the experiment dashboard in Chrome.
 
 
 ## Installing PsyNet and preparing to run this experiment
+
+Follow these instructions if you do not have PsyNet installed.
 
 We highly recommend to run this under Linux and in a Python virtual environment using `venv`. This will spare you the hassle of setting up WSL2 and Docker under Windows. For final testing of your experiment before deploying it, we would recommend to run it in Docker once (again under Linux).
 

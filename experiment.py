@@ -25,32 +25,8 @@ import pandas as pd
 from typing import Union, Dict, NoReturn, List
 
 
-# In catR (the R package for computerized adaptive testing), the a, b, c, d
-# parameters are the item parameters from Item Response Theory (IRT) models.
-#  Their meaning depends on which IRT model you are using:
-#
-# a → discrimination parameter
-#  How well the item differentiates between examinees with different ability
-#  levels (slope of the ICC).
-#  Higher a means the item is more informative around its difficulty point.
-#
-# b → difficulty parameter
-#  The ability level (θ) at which the probability of a correct response is 50%
-#  (in the 2PL and 3PL models).
-#  Shifts the item response curve left or right.
-#
-# c → guessing parameter
-#  Lower asymptote of the item characteristic curve.
-#  Represents the probability of a correct answer by guessing (often relevant
-# in multiple-choice tests).
-#
-# d → upper asymptote
-#  Upper bound of the item characteristic curve (instead of 1.0).
-#  Useful in the 4PL model if items have less-than-perfect maximum performance
-#  (slipping, careless errors, etc.).
 
-
-g_items_data = pd.DataFrame({
+g_items_data = pd.DataFrame({   # see catR R package documentation for details on parameters
     "a": [1.32, 1.07, 0.84, 1.19, 0.95],  # discrimination
     "b": [-0.63, 0.18, -0.84, 0.41, -0.25],  # difficulty
     "c": [0.17, 0.10, 0.19, 0.15, 0.12],  # guessing
@@ -60,72 +36,74 @@ g_items_data = pd.DataFrame({
 })
 
 
-nodes = [
-    StaticNode(
-        definition={
-            "stimulus": row["stimulusfile"],
-            # Include other parameters from your dataframe if needed
-            "a": row["a"],
-            "b": row["b"],
-            "c": row["c"],
-            "d": row["d"]
-        },
-    )
-    for _, row in g_items_data.iterrows()
-]
-
-
 class CustomTrial(StaticTrial):
-    _time_trial = 3
-    _time_feedback = 2
 
-    time_estimate = _time_trial + _time_feedback
-    wait_for_feedback = True
+    time_estimate = 10.0  # seconds
 
     def finalize_definition(self, definition: Dict, experiment: psynet.experiment.Experiment, participant: Participant) -> Dict:
 
         adaptive_test: AdaptiveTest = participant.var.adaptive_test
-        assert isinstance(adaptive_test, AdaptiveTest)
+        assert isinstance(adaptive_test, AdaptiveTest), f"Expected adaptive_test to be AdaptiveTest, got {type(adaptive_test)}"
         item: TestItem = adaptive_test.get_next_item()
-        # print(f"Selected item ID: {item.id}, a: {item.a}, b: {item.b}, c: {item.c}, d: {item.d}")
-        print(f"Selected item as dict: {item.as_dict()}")
-        stimulus_id: Union[int, None] = item.id
-        if not isinstance(stimulus_id, int):
-            print(
-                f"##### Warning: item ID is not an int, but {type(stimulus_id)}. Setting stimulus_id to -1.")
-            stimulus_id = -1
+        print(f"CustomTrial.finalize_definition(): Selected item as dict: {item.as_dict()}")
 
-        definition["stimulus_id"] = stimulus_id
+        ## Currently adaptive_test.item_pool does not store IDs, but I suggested a patch to add this feature.
+        ## When implemented, we could use the ID to select a stimulus file.
+        #stimulus_id: Union[int, None] = item.id
+        #if not isinstance(stimulus_id, int):
+        #    print(f"CustomTrial.finalize_definition(): Warning: item ID is not an int, but {type(stimulus_id)}.")
+        #definition["stimulus_id"] = stimulus_id
 
         item_difficulty: float = item.b
         stimuli_list: pd.Series = g_items_data.loc[g_items_data["b"] == item_difficulty, "stimulusfile"] # TODO: avoid accessing global variable. Requires my patch for adaptive_test.itempool, which currently does not store IDs.
         selected_stimulus_file: str = stimuli_list.values[0]
-        print(f"###### Selected stimulus file: '{selected_stimulus_file}'.")
+        print(f"CustomTrial.finalize_definition(): Selected stimulus file: '{selected_stimulus_file}'.")
 
         definition["stimulus"] = selected_stimulus_file
 
+        ## We could create an asset here, but currently we keeop it simple and just use the filename directly.
         # print(f"Creating asset from stimulus file '{stimulus}'...")
         # self.add_assets(
         #    {
         #        "stimulus": asset(stimulus)
         #    }
         # )
+        print(f"CustomTrial.finalize_definition(): returning final definition: {definition}")
         return definition
 
-    def show_trial(self, experiment, participant):
+
+    def show_trial(self, experiment : psynet.experiment.Experiment, participant : Participant) -> ModularPage:
         print(f"CustomTrial.show_trial() for participant {participant.id}: self.definition: {self.definition}")
+
+        #selected_stimulus_file : str = self.definition['stimulus']
+        #adaptive_test: AdaptiveTest = participant.var.adaptive_test
+        #item: TestItem = adaptive_test.get_next_item()
+
+        item: TestItem = self.definition['item']
+        assert isinstance(item, TestItem), f"Expected item to be TestItem, got {type(item)}"
+        print(f"CustomTrial.show_trial(): Selected item as dict: {item.as_dict()}")
+        item_difficulty: float = item.b
+        stimuli_list: pd.Series = g_items_data.loc[g_items_data["b"] == item_difficulty, "stimulusfile"] # TODO: avoid accessing global variable. Requires my patch for adaptive_test.itempool, which currently does not store IDs.
+        selected_stimulus_file: str = stimuli_list.values[0]
+
+        #selected_stimulus_file: str = self.definition['stimulus']
+
+        assert isinstance(selected_stimulus_file, str), f"Expected stimulus to be str, got {type(selected_stimulus_file)}"
+
+
         return ModularPage(
-            "imitation",
+            "sound_comparison",
             Prompt(
-                # self.assets["stimulus"],
-                # audio=self.definition["stimulus"],
-                text=f"Please listen to the 2 sounds from file '{self.definition['stimulus']}' as closely as possible. Were they identical?",
+                # In the real experiment, we play an audio file that contains two sounds: sound A, then a pause, then sound B.
+                # In this demo experiment, we dont play and sound, we just print the filename of the sound we would play.
+                text=f"Please listen to the 2 sounds from file '{selected_stimulus_file}' as closely as possible. Were they identical? (NOTE: In this demo, no sounds are played, just selected a random answer.)",
             ),
             RadioButtonControl(
                 choices=["yes", "no"],
                 labels=["Yes, they were identical.",
                         "No, they were not identical."],
             ),
+            time_estimate=10,
         )
 
 
@@ -138,12 +116,11 @@ class Exp(psynet.experiment.Experiment):
     consent_page = NoConsent()
     asset_storage = LocalStorage()
 
-    # Adaptive testing configuration
-    # Create item pool from DataFrame
-
-    # Create adaptive test
 
     def create_adaptivetest_instance(items_difficulty_csvfile: Union[str, None] = None) -> AdaptiveTest:
+        """
+        Helper function to create an AdaptiveTest instance.
+        """
 
         if items_difficulty_csvfile:
             # Load item parameters from CSV file
@@ -169,17 +146,19 @@ class Exp(psynet.experiment.Experiment):
         )
         return adaptive_test
 
-    def select_next_item_id(participant: Participant) -> NoReturn:
+
+    def set_participant_current_item(participant: Participant) -> NoReturn:
         """
         Sets the current_item variable of the participant to the next item selected by the adaptive test.
         """
         adaptive_test: AdaptiveTest = participant.var.adaptive_test
-        assert isinstance(adaptive_test, AdaptiveTest)
+        assert isinstance(adaptive_test, AdaptiveTest), f"Expected adaptive_test to be AdaptiveTest, got {type(adaptive_test)}"
         # previous_trials = CustomTrial.query.filter_by(participant_id=participant.id).all()
         # print(f"Previous trials: {len(previous_trials)}")
         next_item: TestItem = adaptive_test.get_next_item()
         print(f"select_next_item_id for participant {participant.id}: Selected next item: {next_item.as_dict()}")
         participant.var.set("current_item", next_item)
+
 
     def evaluate_response(participant: Participant) -> NoReturn:
 
@@ -193,10 +172,7 @@ class Exp(psynet.experiment.Experiment):
         adaptive_test.get_response = get_response
         print(f"evaluate_reponse: running adaptive_test.run_test_once()...")
         adaptive_test.run_test_once()
-        # Careful: watch out for PsyNet not updating the participant.var.adaptive_test,
-        # because it's an inplace update.
-        # This should hopefully work though:
-        participant.var.adaptive_test = adaptive_test
+        participant.var.adaptive_test = adaptive_test # update participant variable
 
         all_item_difficulties: List[float] = adaptive_test.get_item_difficulties()
 
@@ -226,8 +202,7 @@ class Exp(psynet.experiment.Experiment):
     timeline = Timeline(
         InfoPage(
             """
-            In this experiment you will hear some words. Your task will be to repeat
-            them back as accurately as possible.
+            In this experiment you will hear two melodies per trial, with a short pause in between. Your task is to listen carefully and decide whether they are identical or not.
             """,
             time_estimate=5,
         ),
@@ -236,26 +211,17 @@ class Exp(psynet.experiment.Experiment):
         lambda participant: participant.var.set(
             "stopping_criterion_not_fulfilled", True),
         lambda participant: participant.var.set("current_item", None),
-        StaticTrialMaker(
-            id_="adaptivetesting",
-            trial_class=CustomTrial,
-            nodes=nodes,
-            expected_trials_per_participant=len(nodes),
-            target_n_participants=3,
-            recruit_mode="n_participants",
-        ),
+        CodeBlock(set_participant_current_item),
         while_loop(
             label="Adaptive test loop",
             condition=lambda participant: participant.var.stopping_criterion_not_fulfilled,
             logic=join(
-                # loads the adaptive test, and sets the current_item variable of participant
-                CodeBlock(select_next_item_id),
-                TODO: the next line overwrites the definition! it should rather update it.
                 PageMaker(lambda participant: CustomTrial.cue(definition={
                     "item": participant.var.current_item,
                 }, assets=None), time_estimate=10.0),
                 CodeBlock(evaluate_response),
+                CodeBlock(set_participant_current_item),
             ),
-            expected_repetitions=len(nodes),
+            expected_repetitions=g_items_data.shape[0],
         ),
     )
