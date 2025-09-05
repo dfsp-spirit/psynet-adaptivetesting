@@ -7,16 +7,10 @@
 # instantiated and the timeline defined below will be executed for each participant.
 #
 
-import random
+
 import psynet.experiment
-from psynet.asset import LocalStorage, OnDemandAsset, S3Storage, asset  # noqa
-from psynet.modular_page import (
-    AudioPrompt,
-    Prompt,
-    AudioRecordControl,
-    ModularPage,
-    RadioButtonControl
-)
+from psynet.asset import LocalStorage
+from psynet.modular_page import Prompt, ModularPage,RadioButtonControl
 from psynet.page import InfoPage
 from psynet.timeline import Timeline, CodeBlock, PageMaker, while_loop, join
 from psynet.trial.main import Trial
@@ -30,10 +24,10 @@ from adaptivetesting.math.estimators import BayesModal, CustomPrior
 from adaptivetesting.math.item_selection import maximum_information_criterion
 from scipy.stats import t
 import pandas as pd
-from typing import Union, Dict, NoReturn, List
+from typing import Union, NoReturn
 
 
-
+# The item parameters for the test items. In a real experiment, you would load these from a CSV file.
 g_items_data = pd.DataFrame({   # see catR R package documentation for details on parameters
     "a": [1.32, 1.07, 0.84, 1.19, 0.95],  # discrimination
     "b": [-0.63, 0.18, -0.84, 0.41, -0.25],  # difficulty
@@ -45,6 +39,8 @@ g_items_data = pd.DataFrame({   # see catR R package documentation for details o
 
 
 class CustomTrial(Trial):
+    """Our custom trial class. The show_trial method relies on the item selected by the adaptive test,
+      stored in the PsyNet Participant, and passed into the definition by CustomTrial.cue() in the timeline below."""
 
     time_estimate = 10.0  # seconds
 
@@ -74,8 +70,6 @@ class CustomTrial(Trial):
             ),
             time_estimate=10,
         )
-
-
 
 
 class Exp(psynet.experiment.Experiment):
@@ -122,8 +116,6 @@ class Exp(psynet.experiment.Experiment):
         """
         adaptive_test: AdaptiveTest = participant.var.adaptive_test
         assert isinstance(adaptive_test, AdaptiveTest), f"Expected adaptive_test to be AdaptiveTest, got {type(adaptive_test)}"
-        # previous_trials = CustomTrial.query.filter_by(participant_id=participant.id).all()
-        # print(f"Previous trials: {len(previous_trials)}")
         assert isinstance(participant, Participant), f"set_participant_current_item: Expected participant to be Participant, got {type(participant)}"
 
         if participant.var.stopping_criterion_not_fulfilled:
@@ -155,7 +147,6 @@ class Exp(psynet.experiment.Experiment):
         assert isinstance(participant, Participant), f"evaluate_response: Expected participant to be Participant, got {type(participant)}"
         print(f"evaluate_response: participant answer: {participant.answer}")
 
-
         adaptive_test: AdaptiveTest = participant.var.adaptive_test
         assert isinstance(adaptive_test, AdaptiveTest), f"Expected adaptive_test to be AdaptiveTest, got {type(adaptive_test)}"
         adaptive_test.get_response = get_response
@@ -164,25 +155,20 @@ class Exp(psynet.experiment.Experiment):
         adaptive_test.get_response = None  # remove reference to participant function to avoid issues with serialization
         participant.var.adaptive_test = adaptive_test # update participant variable
 
-        #all_item_difficulties: List[float] = adaptive_test.get_item_difficulties()
-        #print(f"evaluate_reponse: All item difficulties in test pool: {all_item_difficulties}")
-        #answered_items_difficulties: List[float] = adaptive_test.get_answered_items_difficulties()
-        #print(f"evaluate_reponse: Answered item difficulties: {answered_items_difficulties}")
+        #print(f"evaluate_reponse: current ability estimate: {adaptive_test.ability:.2f}, standard error: {adaptive_test.standard_error:.2f}")
 
         # Check whether stopping criterion is fulfilled
         if adaptive_test.standard_error <= 0.4:
-            print(
-                f"evaluate_reponse: Stopping criterion A fulfilled: standard error {adaptive_test.standard_error:.2f} <= 0.4")
+            print(f"evaluate_reponse: Stopping criterion A fulfilled: standard error {adaptive_test.standard_error:.2f} <= 0.4")
             participant.var.stopping_criterion_not_fulfilled = False
 
         # Also end test if all items have been shown
         if len(adaptive_test.item_pool.test_items) == 0:
-            print(
-                f"evaluate_reponse: Stopping criterion B fulfilled: all items have been shown.")
+            print(f"evaluate_reponse: Stopping criterion B fulfilled: all items have been shown.")
             participant.var.stopping_criterion_not_fulfilled = False
 
-        #print(f"evaluate_reponse: current ability estimate: {adaptive_test.ability:.2f}, standard error: {adaptive_test.standard_error:.2f}")
-        #print(f"###### evaluate_response: finished evaluating response for participant {participant.id}. #####")
+
+
 
 
     timeline = Timeline(
