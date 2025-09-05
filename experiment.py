@@ -1,5 +1,13 @@
-import random
+# Experiment implementation for an adaptive testing experiment using PsyNet and AdaptiveTesting libraries.
+#
+#  How this works:
+#
+# When you run 'psynet debug local', 'psynet deploy' or another PsyNet run command in your shell,
+# the class that inherits from psynet.experiment.Experiment (`Exp` in this file) will be
+# instantiated and the timeline defined below will be executed for each participant.
+#
 
+import random
 import psynet.experiment
 from psynet.asset import LocalStorage, OnDemandAsset, S3Storage, asset  # noqa
 from psynet.modular_page import (
@@ -11,7 +19,6 @@ from psynet.modular_page import (
 )
 from psynet.page import InfoPage
 from psynet.timeline import Timeline, CodeBlock, PageMaker, while_loop, join
-from psynet.trial.static import StaticNode, StaticTrial, StaticTrialMaker
 from psynet.trial.main import Trial
 from psynet.consent import NoConsent
 from psynet.participant import Participant
@@ -124,10 +131,19 @@ class Exp(psynet.experiment.Experiment):
     def evaluate_response(participant: Participant) -> NoReturn:
 
         print(f"###### evaluate_response: starting to evaluate response for participant {participant.id}... #####")
+        assert isinstance(participant, Participant), f"evaluate_response: Expected participant to be Participant, got {type(participant)}"
         print(f"evaluate_response: participant answer: {participant.answer}")
 
-        def get_response(participant: Participant) -> int:
-            return participant.answer
+        def get_response(test_item: TestItem) -> int:
+            """A function that we need to pass to the AdaptiveTesting library, which returns the response of the participant for the current item."""
+            assert isinstance(test_item, TestItem), f"get_response: Expected test_item to be TestItem, got {type(test_item)}"
+            participant_answer: str = participant.answer
+            assert participant_answer in ["yes", "no"], f"get_response: Expected answer to be 'yes' or 'no', got {participant_answer}"
+
+            # Map the answer to 1 (correct, in the sense that the participant answered the question whether sounds are identical correctly) or 0 (incorrect).
+            # TODO: We need to know the correct answer from the original dataframe. For now, we just assume "yes" is always the correct answer.
+            answer_for_adaptivetest : int = 0 if participant_answer == "no" else 1
+            return answer_for_adaptivetest
 
         adaptive_test: AdaptiveTest = participant.var.adaptive_test
         assert isinstance(adaptive_test, AdaptiveTest), f"Expected adaptive_test to be AdaptiveTest, got {type(adaptive_test)}"
