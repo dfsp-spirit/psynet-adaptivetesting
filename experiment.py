@@ -12,6 +12,7 @@ from psynet.modular_page import (
 from psynet.page import InfoPage
 from psynet.timeline import Timeline, CodeBlock, PageMaker, while_loop, join
 from psynet.trial.static import StaticNode, StaticTrial, StaticTrialMaker
+from psynet.trial.main import Trial
 from psynet.consent import NoConsent
 from psynet.participant import Participant
 
@@ -36,7 +37,7 @@ g_items_data = pd.DataFrame({   # see catR R package documentation for details o
 })
 
 
-class CustomTrial(StaticTrial):
+class CustomTrial(Trial):
 
     time_estimate = 10.0  # seconds
 
