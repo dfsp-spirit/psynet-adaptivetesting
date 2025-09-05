@@ -124,9 +124,17 @@ class Exp(psynet.experiment.Experiment):
         assert isinstance(adaptive_test, AdaptiveTest), f"Expected adaptive_test to be AdaptiveTest, got {type(adaptive_test)}"
         # previous_trials = CustomTrial.query.filter_by(participant_id=participant.id).all()
         # print(f"Previous trials: {len(previous_trials)}")
-        next_item: TestItem = adaptive_test.get_next_item()
-        print(f"select_next_item_id for participant {participant.id}: Selected next item: {next_item.as_dict()}")
-        participant.var.set("current_item", next_item)
+        assert isinstance(participant, Participant), f"set_participant_current_item: Expected participant to be Participant, got {type(participant)}"
+
+        if participant.var.stopping_criterion_not_fulfilled:
+            # If stopping criterion is not fulfilled, select the next item
+            next_item: TestItem = adaptive_test.get_next_item()
+            print(f"select_next_item_id for participant {participant.id}: Selected next item: {next_item.as_dict()}")
+            participant.var.set("current_item", next_item)
+        else:
+            # If stopping criterion is fulfilled, set current_item to None
+            print(f"set_participant_current_item: Stopping criterion fulfilled, no more items to select for participant {participant.id}.")
+            participant.var.set("current_item", None)
 
 
     @staticmethod
