@@ -76,6 +76,8 @@ class CustomTrial(Trial):
         )
 
 
+
+
 class Exp(psynet.experiment.Experiment):
 
     ## PsyNet experiment configuration
@@ -130,10 +132,6 @@ class Exp(psynet.experiment.Experiment):
     @staticmethod
     def evaluate_response(participant: Participant) -> NoReturn:
 
-        print(f"###### evaluate_response: starting to evaluate response for participant {participant.id}... #####")
-        assert isinstance(participant, Participant), f"evaluate_response: Expected participant to be Participant, got {type(participant)}"
-        print(f"evaluate_response: participant answer: {participant.answer}")
-
         def get_response(test_item: TestItem) -> int:
             """A function that we need to pass to the AdaptiveTesting library, which returns the response of the participant for the current item."""
             assert isinstance(test_item, TestItem), f"get_response: Expected test_item to be TestItem, got {type(test_item)}"
@@ -145,11 +143,17 @@ class Exp(psynet.experiment.Experiment):
             answer_for_adaptivetest : int = 0 if participant_answer == "no" else 1
             return answer_for_adaptivetest
 
+        print(f"###### evaluate_response: starting to evaluate response for participant {participant.id}... #####")
+        assert isinstance(participant, Participant), f"evaluate_response: Expected participant to be Participant, got {type(participant)}"
+        print(f"evaluate_response: participant answer: {participant.answer}")
+
+
         adaptive_test: AdaptiveTest = participant.var.adaptive_test
         assert isinstance(adaptive_test, AdaptiveTest), f"Expected adaptive_test to be AdaptiveTest, got {type(adaptive_test)}"
         adaptive_test.get_response = get_response
         print(f"evaluate_reponse: running adaptive_test.run_test_once()...")
         adaptive_test.run_test_once()
+        adaptive_test.get_response = None  # remove reference to participant function to avoid issues with serialization
         participant.var.adaptive_test = adaptive_test # update participant variable
 
         #all_item_difficulties: List[float] = adaptive_test.get_item_difficulties()
